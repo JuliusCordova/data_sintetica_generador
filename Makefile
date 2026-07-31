@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: bootstrap deploy validate all
+.PHONY: bootstrap deploy validate bronze-deploy bronze-validate origen-all bronze-all all
 
 bootstrap:
 	bash scripts/bootstrap.sh
@@ -11,4 +11,14 @@ deploy:
 validate:
 	bash scripts/validate_bigquery.sh
 
-all: bootstrap deploy validate
+bronze-deploy:
+	bash scripts/deploy_bronze.sh
+
+bronze-validate:
+	bash scripts/validate_bronze.sh
+
+origen-all: bootstrap deploy validate
+
+bronze-all: bootstrap deploy validate bronze-deploy bronze-validate
+
+all: bronze-all

@@ -21,7 +21,16 @@ WITH source_rows AS (
   SELECT
     src.*,
     CAST(SUBSTR(src.pago_id, 5) AS INT64) AS numero_origen,
-    TO_HEX(SHA256(TO_JSON_STRING(src))) AS hash_origen
+    TO_HEX(SHA256(CONCAT(
+      src.pago_id, '|',
+      src.poliza_id, '|',
+      CAST(src.fecha_vencimiento AS STRING), '|',
+      COALESCE(CAST(src.fecha_pago AS STRING), ''), '|',
+      src.estado_pago, '|',
+      src.moneda, '|',
+      CAST(src.importe_programado AS STRING), '|',
+      CAST(src.importe_pagado AS STRING)
+    ))) AS hash_origen
   FROM `${PROJECT_ID}.${DATASET_ID}.pagos_primas` AS src
 ),
 regular AS (
@@ -42,6 +51,12 @@ regular AS (
     src.hash_origen AS bronze_hash_origen,
     TO_HEX(SHA256(CONCAT(
       src.pago_id, '|',
+      src.poliza_id, '|',
+      CAST(src.fecha_vencimiento AS STRING), '|',
+      COALESCE(CAST(src.fecha_pago AS STRING), ''), '|',
+      src.estado_pago, '|',
+      src.moneda, '|',
+      CAST(src.importe_programado AS STRING), '|',
       CAST(
         CASE
           WHEN MOD(src.numero_origen, 60000) = 29
@@ -71,7 +86,7 @@ duplicados AS (
     'pagos_primas_0001_reproceso.parquet' AS bronze_archivo_origen,
     src.numero_origen AS bronze_numero_fila_origen,
     src.hash_origen AS bronze_hash_origen,
-    TO_HEX(SHA256(CONCAT(src.pago_id, '|', CAST(src.importe_pagado AS STRING)))) AS bronze_hash_registro,
+    src.hash_origen AS bronze_hash_registro,
     'DUPLICADO_CONTROLADO' AS bronze_estado_registro,
     'Registro repetido por reproceso simulado del archivo' AS bronze_motivo_observacion
   FROM source_rows AS src
@@ -88,7 +103,17 @@ WITH source_rows AS (
   SELECT
     src.*,
     CAST(SUBSTR(src.siniestro_id, 5) AS INT64) AS numero_origen,
-    TO_HEX(SHA256(TO_JSON_STRING(src))) AS hash_origen
+    TO_HEX(SHA256(CONCAT(
+      src.siniestro_id, '|',
+      src.poliza_id, '|',
+      src.estado_siniestro_id, '|',
+      CAST(src.fecha_ocurrencia AS STRING), '|',
+      CAST(src.fecha_reporte AS STRING), '|',
+      src.moneda, '|',
+      CAST(src.monto_reclamado AS STRING), '|',
+      CAST(src.monto_reserva AS STRING), '|',
+      COALESCE(CAST(src.monto_indemnizado AS STRING), '')
+    ))) AS hash_origen
   FROM `${PROJECT_ID}.${DATASET_ID}.siniestros` AS src
 ),
 regular AS (
@@ -109,13 +134,20 @@ regular AS (
     src.hash_origen AS bronze_hash_origen,
     TO_HEX(SHA256(CONCAT(
       src.siniestro_id, '|',
+      src.poliza_id, '|',
+      src.estado_siniestro_id, '|',
+      CAST(src.fecha_ocurrencia AS STRING), '|',
+      CAST(src.fecha_reporte AS STRING), '|',
+      src.moneda, '|',
+      CAST(src.monto_reclamado AS STRING), '|',
       CAST(
         CASE
           WHEN MOD(src.numero_origen, 12500) = 29
             THEN ROUND(src.monto_reserva + CAST(100.00 AS NUMERIC), 2)
           ELSE src.monto_reserva
         END AS STRING
-      )
+      ), '|',
+      COALESCE(CAST(src.monto_indemnizado AS STRING), '')
     ))) AS bronze_hash_registro,
     CASE
       WHEN MOD(src.numero_origen, 12500) = 29 THEN 'MONTO_ALTERADO_CONTROLADO'
@@ -138,7 +170,7 @@ duplicados AS (
     'siniestros_0001_reproceso.parquet' AS bronze_archivo_origen,
     src.numero_origen AS bronze_numero_fila_origen,
     src.hash_origen AS bronze_hash_origen,
-    TO_HEX(SHA256(CONCAT(src.siniestro_id, '|', CAST(src.monto_reserva AS STRING)))) AS bronze_hash_registro,
+    src.hash_origen AS bronze_hash_registro,
     'DUPLICADO_CONTROLADO' AS bronze_estado_registro,
     'Registro repetido por reproceso simulado del archivo' AS bronze_motivo_observacion
   FROM source_rows AS src
